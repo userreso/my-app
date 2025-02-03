@@ -1,101 +1,265 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect, useRef } from "react";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [isStarted, setIsStarted] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [isExploded, setIsExploded] = useState(false);
+  const [showDoneButton, setShowDoneButton] = useState(false);
+  const [showJumpscare, setShowJumpscare] = useState(false);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  
+  // Audio refs
+  const explosionAudioRef = useRef<HTMLAudioElement | null>(null);
+  const rainAudioRef = useRef<HTMLAudioElement | null>(null);
+  const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
+  const jumpscareAudioRef = useRef<HTMLAudioElement | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Preload all assets
+  useEffect(() => {
+    const assets = {
+      audio: [
+        '/explosion.mp3',
+        '/rain.mp3',
+        '/background.mp3',
+        '/jumpscare-scream.mp3'
+      ],
+      images: [
+        '/jumpscare.webp'
+      ]
+    };
+
+    const totalAssets = assets.audio.length + assets.images.length;
+    let loadedAssets = 0;
+
+    const updateProgress = () => {
+      loadedAssets++;
+      setLoadingProgress(Math.round((loadedAssets / totalAssets) * 100));
+    };
+
+    const preloadAudio = (file: string): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const audio = new Audio();
+        audio.addEventListener('canplaythrough', () => {
+          updateProgress();
+          resolve();
+        }, { once: true });
+        audio.addEventListener('error', reject);
+        audio.src = file;
+        audio.load();
+      });
+    };
+
+    const preloadImage = (src: string): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          updateProgress();
+          resolve();
+        };
+        img.onerror = reject;
+        img.src = src;
+      });
+    };
+
+    const loadAllAssets = async () => {
+      try {
+        const audioPromises = assets.audio.map(file => preloadAudio(file));
+        const imagePromises = assets.images.map(file => preloadImage(file));
+        
+        await Promise.all([...audioPromises, ...imagePromises]);
+        setAssetsLoaded(true);
+      } catch (error) {
+        console.error("Error loading assets:", error);
+        // Continue anyway after error
+        setAssetsLoaded(true);
+      }
+    };
+
+    loadAllAssets();
+  }, []);
+
+  // Handle background music
+  useEffect(() => {
+    if (backgroundMusicRef.current && isStarted) {
+      backgroundMusicRef.current.play();
+      backgroundMusicRef.current.volume = Math.min(volume * 0.5, 1);
+      backgroundMusicRef.current.loop = true;
+    }
+  }, [isStarted, volume]);
+
+  // Show "Done" button 5 seconds after explosion
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (isExploded) {
+      timeout = setTimeout(() => {
+        setShowDoneButton(true);
+      }, 5000);
+    }
+    return () => clearTimeout(timeout);
+  }, [isExploded]);
+
+  const handleStart = () => {
+    setIsStarted(true);
+  };
+
+  const handlePump = () => {
+    if (!isExploded) {
+      setVolume(Math.min(volume + 0.2, 2));
+    }
+  };
+
+  const handleBalloonClick = () => {
+    if (volume > 1.5) {
+      setIsExploded(true);
+      if (explosionAudioRef.current) {
+        explosionAudioRef.current.currentTime = 0;
+        explosionAudioRef.current.volume = 1;
+        explosionAudioRef.current.play();
+      }
+      if (rainAudioRef.current) {
+        rainAudioRef.current.currentTime = 0;
+        rainAudioRef.current.volume = 0.7;
+        rainAudioRef.current.play();
+      }
+    }
+  };
+
+  const handleJumpscare = () => {
+    setShowJumpscare(true);
+    if (jumpscareAudioRef.current) {
+      jumpscareAudioRef.current.volume = 1;
+      jumpscareAudioRef.current.play();
+    }
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  };
+
+  if (!assetsLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-800 to-black flex flex-col items-center justify-center">
+        <div className="text-white text-xl mb-4">Loading assets...</div>
+        <div className="w-64 h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-blue-500 transition-all duration-300"
+            style={{ width: `${loadingProgress}%` }}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+        <div className="text-white mt-2">{loadingProgress}%</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-800 to-black overflow-hidden relative">
+      {/* Hidden Audio Elements */}
+      <audio ref={explosionAudioRef} src="/explosion.mp3" preload="auto" />
+      <audio ref={rainAudioRef} src="/rain.mp3" preload="auto" loop />
+      <audio ref={backgroundMusicRef} src="/background.mp3" preload="auto" loop />
+      <audio ref={jumpscareAudioRef} src="/jumpscare-scream.mp3" preload="auto" />
+
+      {/* Jumpscare Overlay */}
+      {showJumpscare && (
+        <div className="fixed inset-0 z-50 bg-black">
+          <img
+            src="/jumpscare.webp"
+            alt="jumpscare"
+            className="w-screen h-screen object-cover animate-jumpscare"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+      )}
+
+      {!isStarted ? (
+        <div className="flex items-center justify-center min-h-screen">
+          <button
+            onClick={handleStart}
+            className="px-8 py-4 bg-blue-500 text-white text-xl rounded-full hover:bg-blue-600 transform hover:scale-105 transition"
+          >
+            Play
+          </button>
+        </div>
+      ) : (
+        <div className="container mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+          {/* Left Section - Balloon */}
+          <div className="flex items-center justify-center">
+            {!isExploded ? (
+              <div
+                className="cursor-pointer relative"
+                style={{
+                  width: `${volume * 100}px`,
+                  height: `${volume * 100}px`,
+                }}
+                onClick={handleBalloonClick}
+              >
+                <div
+                  className={`bg-red-500 rounded-full w-full h-full transition-all duration-200 hover:bg-red-600 shadow-lg ${
+                    volume > 1.5 ? 'animate-pulse' : ''
+                  }`}
+                  style={{ transform: `scale(${volume})` }}
+                />
+              </div>
+            ) : (
+              <div className="relative w-full h-96">
+                {/* Nuclear Explosion Effect */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute w-40 h-40 bg-yellow-500 rounded-full animate-nuclear-explode opacity-75" />
+                  <div className="absolute w-60 h-60 bg-orange-500 rounded-full animate-nuclear-explode opacity-50 delay-75" />
+                  <div className="absolute w-80 h-80 bg-red-500 rounded-full animate-nuclear-explode opacity-25 delay-150" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Section - Pump */}
+          <div className="flex items-center justify-center">
+            <button
+              onClick={handlePump}
+              className="relative px-8 py-12 bg-gray-700 rounded-lg hover:bg-gray-600 transform hover:scale-105 transition group"
+              disabled={isExploded}
+            >
+              <div className="absolute inset-x-0 top-2 h-2 bg-gray-800 rounded" />
+              <div className="text-white text-xl">Pump</div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Rain Effect */}
+      {isExploded && (
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute inset-0">
+            {[...Array(100)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute animate-rain-drop bg-blue-200/40"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `-${Math.random() * 20}px`,
+                  width: '2px',
+                  height: `${Math.random() * 20 + 10}px`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  animationDuration: `${Math.random() * 0.5 + 0.5}s`,
+                }}
+              />
+            ))}
+          </div>
+          <div className="absolute inset-0 bg-white animate-lightning" />
+        </div>
+      )}
+
+      {/* Done Button */}
+      {showDoneButton && !showJumpscare && (
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40">
+          <button
+            onClick={handleJumpscare}
+            className="px-8 py-4 bg-green-500 text-white text-xl rounded-full hover:bg-green-600 transform hover:scale-105 transition"
+          >
+            Alright, I'm Done!
+          </button>
+        </div>
+      )}
     </div>
   );
 }
