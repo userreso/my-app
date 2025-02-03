@@ -28,9 +28,9 @@ const config: Config = {
           },
         },
         lightning: {
-          '0%, 100%': { opacity: 0 },
-          '10%, 30%': { opacity: 0.6 },
-          '5%, 25%': { opacity: 0.95 },
+          '0%, 100%': { opacity: '0' },
+          '10%, 30%': { opacity: '0.6' },
+          '5%, 25%': { opacity: '0.95' },
         },
         rainfall: {
           '0%': { transform: 'translateY(-10px)' },

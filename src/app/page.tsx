@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import Image from 'next/image';
 
 export default function Home() {
   const [isStarted, setIsStarted] = useState(false);
@@ -53,7 +54,7 @@ export default function Home() {
 
     const preloadImage = (src: string): Promise<void> => {
       return new Promise((resolve, reject) => {
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
           updateProgress();
           resolve();
@@ -163,11 +164,13 @@ export default function Home() {
       {/* Jumpscare Overlay */}
       {showJumpscare && (
         <div className="fixed inset-0 z-50 bg-black">
-          <img
-            src="/jumpscare.webp"
-            alt="jumpscare"
-            className="w-screen h-screen object-cover animate-jumpscare"
-          />
+          <Image
+  src="/jumpscare.webp"
+  alt="jumpscare"
+  className="w-screen h-screen object-cover animate-jumpscare"
+  fill
+  priority
+/>
         </div>
       )}
 
@@ -256,7 +259,7 @@ export default function Home() {
             onClick={handleJumpscare}
             className="px-8 py-4 bg-green-500 text-white text-xl rounded-full hover:bg-green-600 transform hover:scale-105 transition"
           >
-            Alright, I'm Done!
+            Alright, I&apos;m Done!
           </button>
         </div>
       )}
